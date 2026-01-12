@@ -38,16 +38,21 @@ router.post('/images', authenticateToken, uploadMultipleImages, async (req, res,
       return res.status(400).json({ message: 'No image files provided' });
     }
 
+    console.log(`Uploading ${req.files.length} image(s) for user ${req.user.userId}`);
+
     const files = req.files.map(file => file.buffer);
     const results = await uploadMultipleImagesToCloudinary(files, {
       folder: `minisocial/users/${req.user.userId}/images`
     });
+
+    console.log(`Successfully uploaded ${results.length} image(s)`);
 
     res.json({
       message: 'Images uploaded successfully',
       data: results
     });
   } catch (error) {
+    console.error('Upload images error:', error);
     next(error);
   }
 });

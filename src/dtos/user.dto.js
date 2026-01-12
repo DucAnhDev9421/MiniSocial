@@ -41,12 +41,13 @@ const refreshTokenSchema = Joi.object({
   })
 });
 
-// Schema cho update profile - chỉ hỗ trợ form-data
-// Note: Avatar là file upload, không phải URL
+// Schema cho update profile - hỗ trợ cả form-data và JSON
+// Note: Avatar có thể là file upload (form-data) hoặc URL string (JSON)
 const updateProfileSchema = Joi.object({
   name: Joi.string().min(2).max(100).optional().allow(''),
   username: Joi.string().alphanum().min(3).max(30).optional().allow(''),
-  bio: Joi.string().max(500).allow('', null).optional()
+  bio: Joi.string().max(500).allow('', null).optional(),
+  avatar: Joi.string().uri().allow('', null).optional()
 }).unknown(true); // Cho phép các fields khác (như file upload)
 
 const changePasswordSchema = Joi.object({

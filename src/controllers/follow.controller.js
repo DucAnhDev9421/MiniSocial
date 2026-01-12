@@ -1,5 +1,6 @@
 const User = require('../models/mongodb/user.model');
 const neo4jService = require('../services/neo4j.service');
+const notificationService = require('../services/notification.service');
 const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } = require('../utils/constants');
 
 /**
@@ -43,7 +44,9 @@ async function followUser(req, res, next) {
       User.findByIdAndUpdate(targetId, { $inc: { followersCount: 1 } })
     ]);
 
-    // TODO: Tạo notification cho target user
+    // Tạo notification cho target user
+    const io = req.app.get('io');
+    await notificationService.notifyFollow(targetId, followerId, io);
 
     res.json({
       message: 'Followed successfully',

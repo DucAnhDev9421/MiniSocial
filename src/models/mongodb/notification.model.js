@@ -15,12 +15,12 @@ const NotificationSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['follow', 'like', 'comment', 'mention', 'message'],
+    enum: ['follow', 'like', 'comment', 'mention', 'message', 'friend_request', 'post'],
     required: true
   },
   entityType: {
     type: String,
-    enum: ['post', 'comment', 'user', 'message'],
+    enum: ['post', 'comment', 'user', 'message', 'friend_request'],
     default: null
   },
   entityId: {

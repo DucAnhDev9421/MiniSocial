@@ -57,32 +57,11 @@ npm install
 ```
 
 2. **Cấu hình environment variables:**
-   - Copy `env.example` thành `.env`
-   - Điền các giá trị cần thiết:
-```env
-PORT=3000
-NODE_ENV=development
-MONGO_URI=mongodb://localhost:27017/minisocial
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=your-password
-JWT_SECRET=your-secret-key
-JWT_REFRESH_SECRET=your-refresh-secret-key
-
-# Cloudinary Configuration (for image/video upload)
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-
-# Email Configuration (for OTP verification)
-EMAIL_SERVICE=gmail
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-# For custom SMTP (when EMAIL_SERVICE=smtp)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-APP_NAME=MiniSocial
-```
+   - Copy `.env.example` thành `.env`
+   - Điền các giá trị cần thiết (xem file `.env.example` để biết chi tiết)
+   - **Lưu ý về CORS_ORIGIN:** 
+     - Mặc định: `CORS_ORIGIN=*` (cho phép tất cả - chỉ dùng khi development)
+     - Khi dùng ngrok: `CORS_ORIGIN=https://xxxx-xx-xx-xx-xx.ngrok-free.app,http://localhost:3000`
 
 3. **Khởi động MongoDB và Neo4j:**
    - Đảm bảo MongoDB đang chạy trên port 27017
@@ -96,6 +75,43 @@ npm run dev
 # Production mode
 npm start
 ```
+
+## 🌐 Test trên máy thật với ngrok
+
+Để test ứng dụng trên máy thật (không phải emulator), bạn có thể dùng ngrok để expose API ra internet:
+
+1. **Cài đặt ngrok:**
+   ```bash
+   # Tải từ https://ngrok.com/download
+   # Hoặc dùng npm
+   npm install -g ngrok
+   ```
+
+2. **Chạy ngrok tunnel:**
+   ```bash
+   ngrok http 3000
+   ```
+
+3. **Copy ngrok URL** (ví dụ: `https://xxxx-xx-xx-xx-xx.ngrok-free.app`)
+
+4. **Cập nhật `.env`:**
+   ```env
+   CORS_ORIGIN=https://xxxx-xx-xx-xx-xx.ngrok-free.app,http://localhost:3000
+   ```
+
+5. **Cập nhật Flutter app:**
+   - Mở file `lib/core/config/app_config.dart`
+   - Thay đổi `baseUrl` thành ngrok URL:
+   ```dart
+   static const String baseUrl = 'https://xxxx-xx-xx-xx-xx.ngrok-free.app';
+   ```
+
+6. **Khởi động lại server và test trên máy thật**
+
+**Lưu ý:**
+- Ngrok URL thay đổi mỗi lần chạy (trừ khi dùng tài khoản trả phí)
+- Cần cập nhật lại URL trong Flutter app mỗi lần chạy ngrok mới
+- Ngrok miễn phí có giới hạn traffic và có warning page
 
 ## ✨ Tính năng đã triển khai
 

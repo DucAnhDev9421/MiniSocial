@@ -6,6 +6,8 @@ const postRoutes = require('./post.routes');
 const commentRoutes = require('./comment.routes');
 const friendRoutes = require('./friend.routes');
 const storyRoutes = require('./story.routes');
+const chatRoutes = require('./chat.routes');
+const notificationRoutes = require('./notification.routes');
 const uploadRoutes = require('./upload.routes');
 
 // Health check
@@ -28,6 +30,13 @@ router.use('/friends', friendRoutes);
 
 // Story routes (24h stories)
 router.use('/stories', storyRoutes);
+
+// Chat/Message routes (yêu cầu authentication)
+router.use('/conversations', chatRoutes);
+router.use('/messages', chatRoutes); // For message deletion endpoint
+
+// Notification routes (yêu cầu authentication)
+router.use('/notifications', notificationRoutes);
 
 // Upload routes (yêu cầu authentication)
 router.use('/upload', uploadRoutes);
