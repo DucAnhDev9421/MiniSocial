@@ -28,7 +28,9 @@ router.get('/profile/:userId', optionalAuthenticate, userController.getProfile);
 /**
  * Cập nhật profile (yêu cầu authentication)
  * PUT /api/users/profile
- * Chỉ hỗ trợ multipart/form-data: name, username, bio (text) + avatar (file) - upload file trực tiếp
+ * Hỗ trợ:
+ * - multipart/form-data: name, username, bio (text) + avatar (file) - upload file trực tiếp
+ * - application/json: name, username, bio, avatar (URL string) - gửi avatar URL đã upload
  */
 router.put(
   '/profile',

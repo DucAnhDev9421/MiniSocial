@@ -1,4 +1,5 @@
 const User = require('../models/mongodb/user.model');
+const Post = require('../models/mongodb/post.model');
 const neo4jService = require('../services/neo4j.service');
 const { uploadImage, deleteFile } = require('../services/cloudinary.service');
 const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } = require('../utils/constants');
@@ -58,7 +59,7 @@ async function getProfile(req, res, next) {
 async function updateProfile(req, res, next) {
   try {
     const userId = req.user.userId;
-    const { name, username, bio } = req.body; // Chỉ nhận text fields
+    const { name, username, bio, avatar } = req.body; // Chỉ nhận text fields
     const avatarFile = req.file; // avatar từ file upload (optional)
 
     const user = await User.findByIdActive(userId);
@@ -136,6 +137,12 @@ async function updateProfile(req, res, next) {
           message: errorMessage,
           error: error.message 
         });
+      }
+    } else if (avatar !== undefined && avatar !== null && avatar !== '') {
+      // Nếu không có file upload nhưng có avatar URL từ request body (JSON)
+      // Validate URL format
+      if (typeof avatar === 'string' && avatar.trim() !== '') {
+        user.avatar = avatar.trim();
       }
     }
     
@@ -362,15 +369,59 @@ async function getUserPosts(req, res, next) {
       });
     }
 
-    // TODO: Implement khi có Post model/service
+    const currentUserId = req.user ? req.user.userId : null;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(MAX_LIMIT, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build query - chỉ lấy posts public hoặc của chính user đó
+    const query = {
+      author: userId,
+      isDeleted: false
+    };
+
+    // Nếu không phải chính user đó, chỉ lấy posts public
+    if (currentUserId !== userId) {
+      query.visibility = 'public';
+    }
+
+    // Lấy posts
+    const posts = await Post.find(query)
+      .populate('author', 'name username avatar')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Format posts
+    const formattedPosts = posts.map(post => ({
+      id: post._id,
+      content: post.content,
+      images: post.images || [],
+      visibility: post.visibility,
+      likesCount: post.likesCount || 0,
+      commentsCount: post.commentsCount || 0,
+      isLiked: currentUserId && post.likedBy?.includes(currentUserId) || false,
+      author: {
+        id: post.author._id,
+        name: post.author.name,
+        username: post.author.username,
+        avatar: post.author.avatar
+      },
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt
+    }));
+
+    // Đếm tổng số posts
+    const total = await Post.countDocuments(query);
+
     res.json({
-      message: 'Feature coming soon',
-      posts: [],
+      posts: formattedPosts,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: 0,
-        pages: 0
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
       }
     });
   } catch (error) {

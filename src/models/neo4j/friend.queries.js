@@ -24,12 +24,9 @@ async function createFriend(session, userId1, userId2) {
  */
 async function deleteFriend(session, userId1, userId2) {
   const result = await session.run(
-    `MATCH (a:User {id: $userId1})-[r1:${FRIEND_RELATIONSHIP}]-(b:User {id: $userId2})
-     DELETE r1
-     WITH a, b
-     MATCH (b)-[r2:${FRIEND_RELATIONSHIP}]-(a)
-     DELETE r2
-     RETURN count(r1) + count(r2) as deleted`,
+    `MATCH (a:User {id: $userId1})-[r:${FRIEND_RELATIONSHIP}]-(b:User {id: $userId2})
+     DELETE r
+     RETURN count(r) as deleted`,
     { userId1, userId2 }
   );
   return result.records[0]?.get('deleted').toNumber() > 0;

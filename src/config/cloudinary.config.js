@@ -8,7 +8,9 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true, // Sử dụng HTTPS
-  timeout: 60000 // 60 seconds timeout cho API calls
+  timeout: 300000, // 300 seconds (5 minutes) timeout cho API calls (tăng lên cho video)
+  chunk_size: 6000000, // 6MB chunks for large files
+  api_proxy: process.env.CLOUDINARY_API_PROXY || undefined, // Optional proxy
 });
 
 /**

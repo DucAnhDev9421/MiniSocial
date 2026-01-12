@@ -1,6 +1,7 @@
 const Post = require('../models/mongodb/post.model');
 const User = require('../models/mongodb/user.model');
 const neo4jService = require('../services/neo4j.service');
+const notificationService = require('../services/notification.service');
 const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT, VISIBILITY } = require('../utils/constants');
 
 /**
@@ -33,6 +34,20 @@ async function createPost(req, res, next) {
 
     // Tăng postsCount của user
     await User.findByIdAndUpdate(userId, { $inc: { postsCount: 1 } });
+
+    // Gửi notification cho followers và following khi có bài đăng mới
+    // Chạy async trong background để không block response
+    const io = req.app.get('io');
+    notificationService.notifyNewPost(
+      userId,
+      post._id.toString(),
+      post.content,
+      post.visibility,
+      io
+    ).catch(error => {
+      console.error('❌ Error sending new post notifications:', error);
+      // Không throw error để không ảnh hưởng đến response
+    });
 
     res.status(201).json({
       message: 'Post created successfully',
@@ -181,6 +196,9 @@ async function updatePost(req, res, next) {
 
     await post.save();
 
+    // Populate author để trả về thông tin author
+    await post.populate('author', 'name username avatar isVerified');
+
     res.json({
       message: 'Post updated successfully',
       post: {
@@ -190,7 +208,15 @@ async function updatePost(req, res, next) {
         visibility: post.visibility,
         likesCount: post.likesCount,
         commentsCount: post.commentsCount,
-        updatedAt: post.updatedAt
+        updatedAt: post.updatedAt,
+        createdAt: post.createdAt,
+        author: {
+          id: post.author._id,
+          name: post.author.name,
+          username: post.author.username,
+          avatar: post.author.avatar,
+          isVerified: post.author.isVerified
+        }
       }
     });
   } catch (error) {
@@ -241,7 +267,7 @@ async function deletePost(req, res, next) {
 }
 
 /**
- * Newsfeed - Posts từ users đang follow
+ * Newsfeed - Posts từ users đang follow + tất cả posts public
  * GET /api/posts/feed
  */
 async function getFeed(req, res, next) {
@@ -263,16 +289,26 @@ async function getFeed(req, res, next) {
     // Thêm chính user vào danh sách để hiển thị posts của mình
     followingIds.push(userId);
 
-    // Query posts từ MongoDB
-    const posts = await Post.find({
-      author: { $in: followingIds },
+    // Query posts: Lấy TẤT CẢ posts public + posts từ following (friends)
+    // Đảm bảo user thấy tất cả posts public của mọi người
+    const query = {
       isDeleted: false,
-      visibility: { $in: ['public', 'friends'] } // Chỉ lấy public và friends posts
-    })
-    .populate('author', 'name username avatar isVerified')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limitNum);
+      $or: [
+        // Tất cả posts public (từ mọi người)
+        { visibility: 'public' },
+        // Posts từ following có visibility là friends
+        ...(followingIds.length > 0 ? [{
+          author: { $in: followingIds },
+          visibility: 'friends'
+        }] : [])
+      ]
+    };
+
+    const posts = await Post.find(query)
+      .populate('author', 'name username avatar isVerified')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
 
     // Thêm isLiked status
     const postsWithLikeStatus = posts.map(post => {
@@ -298,11 +334,7 @@ async function getFeed(req, res, next) {
     });
 
     // Count total
-    const total = await Post.countDocuments({
-      author: { $in: followingIds },
-      isDeleted: false,
-      visibility: { $in: ['public', 'friends'] }
-    });
+    const total = await Post.countDocuments(query);
 
     res.json({
       posts: postsWithLikeStatus,
@@ -414,6 +446,13 @@ async function likePost(req, res, next) {
     post.likedBy.push(userId);
     post.likesCount += 1;
     await post.save();
+
+    // Tạo notification cho post author (nếu không phải chính mình)
+    const postAuthorId = post.author.toString();
+    if (postAuthorId !== userId) {
+      const io = req.app.get('io');
+      await notificationService.notifyPostLike(postAuthorId, userId, postId, io);
+    }
 
     res.json({
       message: 'Post liked successfully',

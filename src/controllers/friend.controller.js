@@ -2,6 +2,7 @@ const FriendRequest = require('../models/mongodb/friendRequest.model');
 const User = require('../models/mongodb/user.model');
 const neo4jService = require('../services/neo4j.service');
 const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } = require('../utils/constants');
+const notificationService = require('../services/notification.service');
 
 /**
  * Gửi lời mời kết bạn
@@ -75,6 +76,20 @@ async function sendFriendRequest(req, res, next) {
 
     await friendRequest.save();
 
+    // Tạo notification cho receiver
+    try {
+      const io = req.app.get('io'); // Lấy io instance từ app
+      await notificationService.notifyFriendRequest(
+        receiverId,
+        userId,
+        friendRequest._id,
+        io
+      );
+    } catch (error) {
+      console.warn('⚠️  Could not create friend request notification:', error.message);
+      // Không fail request nếu notification lỗi
+    }
+
     res.status(201).json({
       message: 'Friend request sent successfully',
       request: {
@@ -125,6 +140,19 @@ async function acceptFriendRequest(req, res, next) {
       console.warn('⚠️  Could not create Neo4j friend relationship:', error.message);
     }
 
+    // Xóa thông báo friend_request tương ứng vì hai người đã là bạn
+    try {
+      const Notification = require('../models/mongodb/notification.model');
+      await Notification.deleteMany({
+        type: 'friend_request',
+        entityType: 'friend_request',
+        entityId: requestId
+      });
+    } catch (error) {
+      console.warn('⚠️  Could not delete friend request notification:', error.message);
+      // Không fail request nếu notification lỗi
+    }
+
     // Tăng friendsCount cho cả 2 users (nếu có field này)
     // Note: Có thể cần thêm field friendsCount vào User model
 
@@ -168,6 +196,19 @@ async function deleteFriendRequest(req, res, next) {
 
     // Xóa request
     await friendRequest.deleteOne();
+
+    // Xóa thông báo liên quan đến friend request này
+    try {
+      const Notification = require('../models/mongodb/notification.model');
+      await Notification.deleteMany({
+        type: 'friend_request',
+        entityType: 'friend_request',
+        entityId: requestId
+      });
+    } catch (error) {
+      console.warn('⚠️  Could not delete friend request notification:', error.message);
+      // Không fail request nếu notification lỗi
+    }
 
     res.json({
       message: 'Friend request deleted successfully'

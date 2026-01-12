@@ -1,6 +1,7 @@
 const Comment = require('../models/mongodb/comment.model');
 const Post = require('../models/mongodb/post.model');
 const User = require('../models/mongodb/user.model');
+const notificationService = require('../services/notification.service');
 const { DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT } = require('../utils/constants');
 
 /**
@@ -63,6 +64,36 @@ async function createComment(req, res, next) {
 
     // Populate author info
     await comment.populate('author', 'name username avatar');
+
+    // Tạo notifications
+    const io = req.app.get('io');
+    const postAuthorId = post.author.toString();
+    
+    if (parentComment) {
+      // Nếu là reply, thông báo cho comment author
+      const commentAuthorId = parentComment.author.toString();
+      if (commentAuthorId !== userId) {
+        await notificationService.notifyCommentReply(
+          commentAuthorId,
+          userId,
+          parentCommentId,
+          content.trim(),
+          io
+        );
+      }
+    } else {
+      // Nếu là comment mới, thông báo cho post author
+      if (postAuthorId !== userId) {
+        await notificationService.notifyPostComment(
+          postAuthorId,
+          userId,
+          postId,
+          comment._id.toString(),
+          content.trim(),
+          io
+        );
+      }
+    }
 
     res.status(201).json({
       message: 'Comment created successfully',
@@ -294,6 +325,13 @@ async function likeComment(req, res, next) {
     comment.likedBy.push(userId);
     comment.likesCount += 1;
     await comment.save();
+
+    // Tạo notification cho comment author (nếu không phải chính mình)
+    const commentAuthorId = comment.author.toString();
+    if (commentAuthorId !== userId) {
+      const io = req.app.get('io');
+      await notificationService.notifyCommentLike(commentAuthorId, userId, commentId, io);
+    }
 
     res.json({
       message: 'Comment liked successfully',
